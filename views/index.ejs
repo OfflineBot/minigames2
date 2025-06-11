@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="/css/style.css">
+    <title>Index</title>
+</head>
+<body>
+
+    <div id="login-page" class="game-page" style="display:none;">
+        <div class="game-page-container">
+            <h1>Login</h1>
+            <div class="game-page-container-login">
+                <input type="text" id="login-name">
+                <button onclick="login()">Login</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="lobby-page" class="game-page" style="display:none; flex-direction: column;">
+        <div class="game-page-container">
+            <div class="game-page-container-lobby">
+                <h1>Lobby</h1>
+                <div id="member" style="display: flex; flex-direction: column;"></div>
+                <button onclick="start_game()" id="start-game-btn">Start Game</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-page" class="game-page" style="display:none;">
+        <div class="game-page-container">
+            <h1>Game</h1>
+            <div class="game-page-container-game-text">
+                <div id="previous-text" style="display: flex; flex-direction: column;"></div>
+                <div id="game-page-text" style="display:block;"></div>
+            </div>
+            <div class="game-page-container-game-input">
+                <input type="" id="game-page-input" style="display:flex;">
+                <button onclick="game_submit()" id="game-page-button" style="display:flex;">Submit</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="result-page" class="game-page" style="display:none;">
+        <div class="game-page-container">
+            <h1>Results</h1>
+            <div class="game-page-container-result">
+                <div id="result-texts"></div>
+            </div>
+            <div class="game-page-container-buttons">
+                <button onclick="show_next_result()">Next</button>
+                <button onclick="new_game()">New Game</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const login_page = document.getElementById("login-page");
+        const lobby_page = document.getElementById("lobby-page");
+        const game_page = document.getElementById("game-page");
+        const result_page = document.getElementById("result-page");
+
+        const login_input = document.getElementById("login-name");
+        const member = document.getElementById("member");
+        const prev_text_div = document.getElementById("previous-text");
+
+        function load_login_page() {
+            login_page.style.display = "flex";
+            lobby_page.style.display = "none";
+            game_page.style.display = "none";
+            result_page.style.display = "none";
+        }
+
+        function load_lobby_page() {
+            login_page.style.display = "none";
+            lobby_page.style.display = "flex";
+            game_page.style.display = "none";
+            result_page.style.display = "none";
+        }
+
+        function load_game_page() {
+            login_page.style.display = "none";
+            lobby_page.style.display = "none";
+            game_page.style.display = "flex";
+            result_page.style.display = "none";
+        }
+
+        function load_result_page() {
+            login_page.style.display = "none";
+            lobby_page.style.display = "none";
+            game_page.style.display = "none";
+            result_page.style.display = "flex";
+        }
+
+
+        socket.on("go_login", () => {
+            load_login_page();
+        });
+
+        socket.on("go_lobby", (members) => {
+            load_lobby_page();
+            member.innerHTML = "";
+            const ul = document.createElement('ul');
+            for (let i = 0; i < members.length; i++) {
+                ul.innerHTML += `<li>${members[i]}</li>`;
+            }
+            member.innerHTML = ul;
+        });
+
+        socket.on("update_player", (members) => {
+            member.innerHTML = "";
+            for (let i = 0; i < members.length; i++) {
+                member.innerHTML += `<li><ul>${members[i]}</ul></li>`
+            }
+        })
+
+        socket.on("start_game", () => {
+            const result_texts = document.getElementById("result-texts");
+            load_game_page();
+            init_game_round("Get creative!");
+            result_texts.innerHTML = "";
+        })
+
+        socket.on("result_page", (items) => {
+            const result_texts = document.getElementById("result-texts");
+            result_texts.innerHTML = "";
+            console.log("result page!")
+            for (let i = 0; i < items.length; i++) {
+                let text_item = "";
+                for (let j = 0; j < items[0].length; j++) {
+                    text_item += `<p>${items[j][i].user.name}: ${items[j][i].user.content}</p>`;
+                }
+                result_texts.innerHTML += `<div style="margin: 10px; padding: 10px; border: 1px solid #777777;">${text_item}</div>`
+            }
+            load_result_page();
+        })
+
+        socket.on("next_round", (prev_text) => {
+            console.log("hey: ", prev_text)
+            init_game_round(prev_text);
+        })
+
+        socket.on("new_game", () => {
+            result_page.style = "display:none;";
+            lobby_page.style = "display:flex;";
+        })
+
+        function init_game_round(prev_text) {
+            const text = document.getElementById("game-page-text");
+            const input = document.getElementById("game-page-input");
+            const button = document.getElementById("game-page-button");
+
+            input.value = "";
+
+            text.style.display = "none";
+            input.style.display = "flex";
+            button.style.display = "flex";
+
+            prev_text_div.innerHTML = ""
+            prev_text_div.innerHTML += `<p>${prev_text}</p>`
+        }
+
+        function login() {
+            const name = login_input.value;
+            console.log("hello")
+            socket.emit("register", name)
+        }
+
+        function start_game() {
+            socket.emit("start_game");
+        }
+
+        function game_submit() {
+            const text = document.getElementById("game-page-text");
+            const input = document.getElementById("game-page-input");
+            const button = document.getElementById("game-page-button");
+
+            let text_value = input.value;
+            text.innerHTML = `<p>${text_value}</p>`;
+            text.style.display = "flex";
+            input.style.display = "none";
+            button.style.display = "none";
+
+            socket.emit("game_submit", text_value);
+        }
+
+        function show_next_result() {
+            console.log("not implemented yet")
+        }
+
+        function new_game() {
+            socket.emit("new_game")
+        }
+    </script>
+
+</body>
+</html>
